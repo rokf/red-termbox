@@ -11,6 +11,9 @@ event-response: -1
 while [running] [
   event-response: tb-poll-event event
   tb-clear
+
+  tb-print 20 20 "hello" tb-red tb-default
+
   if event-response = tb-event-key [
     tb-change-cell 5 5 event/ch tb-white tb-default
     if (shortify event/key1 event/key2) = tb-key-esc [

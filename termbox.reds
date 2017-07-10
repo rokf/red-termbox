@@ -212,10 +212,32 @@ tb-event: alias struct! [
   ]
 ]
 
+; temporary function until I find a better way
 shortify: function [
+  "combine two bytes into an integer"
   v1 [byte!]
   v2 [byte!]
   return: [integer!]
 ][
   return ((as integer! v1)) or ((as integer! v2) << 8)
+]
+
+; additional wrapper functions not included in Termbox
+tb-print: function [
+  "put a c-string! on position x y"
+  x [integer!] "x position"
+  y [integer!] "y position"
+  str [c-string!]
+  fg [integer!] "foreground color" ; TODO uint16_t
+  bg [integer!] "background color" ; TODO uint16_t
+  /local s c
+][
+  c: 0
+  s: str
+  until [
+    tb-change-cell (x + c) y (as pointer! [integer!] (as integer! s/1)) fg bg
+    s: s + 1
+    c: c + 1
+    s/1 = null-byte
+  ]
 ]

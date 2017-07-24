@@ -6,16 +6,6 @@ Red/System []
 ; CFLAGS=-m32 LDFLAGS=-m32 ./waf configure --prefix=/usr
 ; ./waf
 
-; "libc.so.6" cdecl [
-;   malloc: "malloc" [
-;     size [integer!]
-;     return: [c-string!]
-;   ]
-;   release: "free" [
-;     block [c-string!]
-;   ]
-; ]
-
 #define TB-KEY-F1               FFFFh-0
 #define TB-KEY-F2               FFFFh-1
 #define TB-KEY-F3               FFFFh-2
@@ -136,22 +126,49 @@ uint16!: alias struct! [
   msb [byte!]
 ]
 
+get-uint16: function [
+  src [uint16!]
+  return: [integer!]
+][
+  (as integer! src/lsb) or ((as integer! src/msb) << 8)
+]
+
+set-uint16: function [
+  src [uint16!]
+  value [integer!]
+][
+  src/lsb: as byte! value and FFh
+  src/msb: as byte! value >> 8 and FFh
+]
+
 tb-cell: alias struct! [
   ch [int-pointer!]
-  fg1 [byte!]
-  fg2 [byte!]
-  bg1 [byte!]
-  bg2 [byte!]
-  ; fg [uint16!]
-  ; bg [uint16!]
+  fg [integer!]
+  bg [integer!]
+]
+
+tb-cell-original: alias struct! [
+  ch [int-pointer!]
+  fg [uint16! value]
+  bg [uint16! value]
 ]
 
 tb-event: alias struct! [
   type [byte!]
   mod [byte!]
-  key1 [byte!]
-  key2 [byte!]
-  ch [int-pointer!]
+  key [integer!]
+  ch [integer!] ; should be uint32
+  w [integer!]
+  h [integer!]
+  x [integer!]
+  y [integer!]
+]
+
+tb-event-original: alias struct! [
+  type [byte!]
+  mod [byte!]
+  key [uint16! value]
+  ch [integer!] ; should be uint32
   w [integer!]
   h [integer!]
   x [integer!]
@@ -170,28 +187,30 @@ tb-event: alias struct! [
     tb-set-clear-attibutes: "tb_set_clear_attributes" [ fg [integer!] bg [integer!] ] ; TODO both are uint16_t
     tb-present: "tb_present" []
     tb-set-cursor: "tb_set_cursor" [ cx [integer!] cy [integer!] ]
-    tb-put-cell: "tb_put_cell" [
+    tb-put-cell-original: "tb_put_cell" [
       x [integer!]
       y [integer!]
-      cell [tb-cell]
+      cell [tb-cell-original]
     ]
     tb-change-cell: "tb_change_cell" [
       x [integer!]
       y [integer!]
-      ch [int-pointer!] ; uint32_t
+      ; ch [int-pointer!] ; uint32_t
+      ch [integer!]
       fg [integer!] ; TODO uint16_t
       bg [integer!] ; TODO uint16_t
     ]
-    tb-blit: "tb_blit" [
-      x [integer!]
-      y [integer!]
-      w [integer!]
-      h [integer!]
-      cells [tb-cell] ; TODO const struct tb_cell *cells
-    ]
-    tb-cell-buffer: "tb_cell_buffer" [
-      return: [tb-cell]
-    ]
+    ; TEMPORARY DISABLED
+    ; tb-blit: "tb_blit" [
+    ;   x [integer!]
+    ;   y [integer!]
+    ;   w [integer!]
+    ;   h [integer!]
+    ;   cells [tb-cell] ; TODO const struct tb_cell *cells
+    ; ]
+    ; tb-cell-buffer: "tb_cell_buffer" [
+    ;   return: [tb-cell]
+    ; ]
     tb-select-input-mode: "tb_select_input_mode" [
       mode [integer!]
       return: [integer!]
@@ -200,26 +219,75 @@ tb-event: alias struct! [
       mode [integer!]
       return: [integer!]
     ]
-    tb-peek-event: "tb_peek_event" [
-      event [tb-event]
+    tb-peek-event-original: "tb_peek_event" [
+      event [tb-event-original]
       timeout [integer!]
       return: [integer!]
     ]
-    tb-poll-event: "tb_poll_event" [
-      event [tb-event]
+    tb-poll-event-original: "tb_poll_event" [
+      event [tb-event-original]
       return: [integer!]
     ]
   ]
 ]
 
-; temporary function until I find a better way
-shortify: function [
-  "combine two bytes into an integer"
-  v1 [byte!]
-  v2 [byte!]
-  return: [integer!]
+tb-put-cell: function [
+  x [integer!]
+  y [integer!]
+  cell [tb-cell]
+  /local orig-cell
 ][
-  return ((as integer! v1)) or ((as integer! v2) << 8)
+  orig-cell: declare tb-cell-original
+  set-uint16 orig-cell/fg cell/fg
+  set-uint16 orig-cell/bg cell/bg
+  tb-put-cell-original x y orig-cell
+]
+
+tb-peek-event: function [
+  event [tb-event] ; doesn't have uint16!
+  timeout [integer!]
+  return: [integer!]
+  /local orig-event out
+][
+  orig-event: declare tb-event-original ; has uint16!
+  out: tb-peek-event-original orig-event timeout
+  fill-event-copy event orig-event
+  return out
+]
+
+tb-poll-event: function [
+  event [tb-event] ; doesn't have uint16!
+  return: [integer!]
+  /local orig-event out
+][
+  orig-event: declare tb-event-original ; has uint16!
+  out: tb-poll-event-original orig-event
+  fill-event-copy event orig-event
+  return out
+]
+
+; temporary function until I find a better way
+; shortify: function [
+;   "combine two bytes into an integer"
+;   v1 [byte!]
+;   v2 [byte!]
+;   return: [integer!]
+; ][
+;   return ((as integer! v1)) or ((as integer! v2) << 8)
+; ]
+
+fill-event-copy: function [
+  event-out [tb-event]
+  event-in [tb-event-original]
+][
+  event-out/type: event-in/type
+  event-out/mod: event-in/mod
+  event-out/key: (get-uint16 event-in/key)
+  event-out/ch: event-in/ch
+  event-out/w: event-in/w
+  event-out/h: event-in/h
+  event-out/x: event-in/x
+  event-out/y: event-in/y
 ]
 
 ; additional wrapper functions not included in Termbox
@@ -235,7 +303,8 @@ tb-print: function [
   c: 0
   s: str
   until [
-    tb-change-cell (x + c) y (as pointer! [integer!] (as integer! s/1)) fg bg
+    ; tb-change-cell (x + c) y (as pointer! [integer!] (as integer! s/1)) fg bg
+    tb-change-cell (x + c) y (as integer! s/1) fg bg
     s: s + 1
     c: c + 1
     s/1 = null-byte

@@ -3,22 +3,11 @@ Red/System []
 
 #include %../termbox.reds
 
-#import [
-  "libc.so.6" cdecl [
-    malloc: "malloc" [
-      size [integer!]
-      return: [c-string!]
-    ]
-    release: "free" [
-      block [c-string!]
-    ]
-  ]
-]
-
 running: true
 tb-init
-event: declare tb-event
+ev: declare tb-event
 event-response: -1
+
 log-tb-event: function [
   e [tb-event]
   x [integer!]
@@ -26,36 +15,36 @@ log-tb-event: function [
   /local buffer
 ][
   buffer: malloc 128
-  sprintf [buffer "type %d" (as integer! event/type)]
+  sprintf [buffer "type %d" (as integer! e/type)]
   tb-print x y buffer tb-white tb-default
-  sprintf [buffer "mod %d" (as integer! event/mod)]
+  sprintf [buffer "mod %d" (as integer! e/mod)]
   tb-print x (y + 1) buffer tb-white tb-default
-  sprintf [buffer "key %d" (as integer! event/key)]
+  sprintf [buffer "key %d" e/key]
   tb-print x (y + 2) buffer tb-white tb-default
-  ; BUG, FIXME
-  ; something is wrong with event/ch
-  ; it gets skipped and contains the value of width
-  ; so everything after ch is wrong in the struct
-  sprintf [buffer "ch %d" (as integer! event/ch)]
+  sprintf [buffer "ch %d" e/ch]
   tb-print x (y + 3) buffer tb-white tb-default
-  sprintf [buffer "w %d" (as integer! event/w)]
+  sprintf [buffer "w %d" e/w]
   tb-print x (y + 4) buffer tb-white tb-default
-  sprintf [buffer "h %d" (as integer! event/h)]
+  sprintf [buffer "h %d" e/h]
   tb-print x (y + 5) buffer tb-white tb-default
-  sprintf [buffer "x %d" (as integer! event/x)]
+  sprintf [buffer "x %d" e/x]
   tb-print x (y + 6) buffer tb-white tb-default
-  sprintf [buffer "y %d" (as integer! event/y)]
+  sprintf [buffer "y %d" e/y]
   tb-print x (y + 7) buffer tb-white tb-default
   release buffer
 ]
 
 while [running] [
-  event-response: tb-poll-event event
   tb-clear
-  log-tb-event event 5 5
+  event-response: tb-poll-event ev
+  log-tb-event ev 10 1
 
   if event-response = tb-event-key [
-    if event/key = tb-key-esc [
+    if ev/key = tb-key-esc [
+      running: false
+      tb-shutdown
+    ]
+    if ev/ch = 113 [
       running: false
       tb-shutdown
     ]

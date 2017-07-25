@@ -126,6 +126,13 @@ uint16!: alias struct! [
   msb [byte!]
 ]
 
+uint32!: alias struct! [
+  b1 [byte!]
+  b2 [byte!]
+  b3 [byte!]
+  b4 [byte!]
+]
+
 get-uint16: function [
   src [uint16!]
   return: [integer!]
@@ -141,23 +148,44 @@ set-uint16: function [
   src/msb: as byte! value >> 8 and FFh
 ]
 
+get-uint32: function [
+  src [uint32!]
+  return: [integer!]
+][
+  (as integer! src/b1) or ((as integer! src/b2) << 8) or ((as integer! src/b3) << 16) or ((as integer! src/b4) << 24)
+]
+
+set-uint32: function [
+  src [uint32!]
+  value [integer!]
+][
+  src/b1: as byte! value and FFh
+  src/b2: as byte! value >> 8 and FFh
+  src/b3: as byte! value >> 16 and FFh
+  src/b4: as byte! value >> 24 and FFh
+]
+
 tb-cell: alias struct! [
-  ch [int-pointer!]
+  ch [integer!]
   fg [integer!]
   bg [integer!]
 ]
 
 tb-cell-original: alias struct! [
-  ch [int-pointer!]
-  fg [uint16! value]
-  bg [uint16! value]
+  ch [uint32! value]
+  ; fg [uint16! value]
+  ; bg [uint16! value]
+  fg1 [byte!]
+  fg2 [byte!]
+  bg1 [byte!]
+  bg2 [byte!]
 ]
 
 tb-event: alias struct! [
   type [byte!]
   mod [byte!]
   key [integer!]
-  ch [integer!] ; should be uint32
+  ch [integer!]
   w [integer!]
   h [integer!]
   x [integer!]
@@ -167,15 +195,56 @@ tb-event: alias struct! [
 tb-event-original: alias struct! [
   type [byte!]
   mod [byte!]
-  key [uint16! value]
-  ch [integer!] ; should be uint32
+  ; key [uint16! value]
+  key1 [byte!]
+  key2 [byte!]
+  ch [uint32! value]
   w [integer!]
   h [integer!]
   x [integer!]
   y [integer!]
 ]
 
+; TEMPORARY
+log-tb-event-original: function [
+  e [tb-event-original]
+  x [integer!]
+  y [integer!]
+  /local buffer
+][
+  buffer: malloc 128
+  sprintf [buffer "type %d" (as integer! e/type)]
+  tb-print x y buffer tb-white tb-default
+  sprintf [buffer "mod %d" (as integer! e/mod)]
+  tb-print x (y + 1) buffer tb-white tb-default
+  ; sprintf [buffer "key %d" (get-uint16 e/key)]
+  sprintf [buffer "key1 %d key2 %d" (as integer! e/key1) (as integer! e/key1)]
+  tb-print x (y + 2) buffer tb-white tb-default
+  sprintf [buffer "ch %d" (get-uint32 e/ch)]
+  tb-print x (y + 3) buffer tb-white tb-default
+  sprintf [buffer "w %d" e/w]
+  tb-print x (y + 4) buffer tb-white tb-default
+  sprintf [buffer "h %d" e/h]
+  tb-print x (y + 5) buffer tb-white tb-default
+  sprintf [buffer "x %d" e/x]
+  tb-print x (y + 6) buffer tb-white tb-default
+  sprintf [buffer "y %d" e/y]
+  tb-print x (y + 7) buffer tb-white tb-default
+  sprintf [buffer "SIZE %d" size? tb-event-original]
+  tb-print x (y + 8) buffer tb-white tb-default
+  release buffer
+]
+
 #import [
+  "libc.so.6" cdecl [
+    malloc: "malloc" [
+      size [integer!]
+      return: [c-string!]
+    ]
+    release: "free" [
+      block [c-string!]
+    ]
+  ]
   "libtermbox.so" cdecl [
     tb-init: "tb_init" [ return: [integer!] ]
     tb-init-file: "tb_init_file" [ name [c-string!] return: [integer!] ]
@@ -192,13 +261,12 @@ tb-event-original: alias struct! [
       y [integer!]
       cell [tb-cell-original]
     ]
-    tb-change-cell: "tb_change_cell" [
+    tb-change-cell: "tb_change_cell" [ ; TODO make a wrapper with correct types
       x [integer!]
       y [integer!]
-      ; ch [int-pointer!] ; uint32_t
-      ch [integer!]
-      fg [integer!] ; TODO uint16_t
-      bg [integer!] ; TODO uint16_t
+      ch [integer!] ; TODO uint32!
+      fg [integer!] ; TODO 2 bytes
+      bg [integer!] ; TODO 2 bytes
     ]
     ; TEMPORARY DISABLED
     ; tb-blit: "tb_blit" [
@@ -238,9 +306,37 @@ tb-put-cell: function [
   /local orig-cell
 ][
   orig-cell: declare tb-cell-original
-  set-uint16 orig-cell/fg cell/fg
-  set-uint16 orig-cell/bg cell/bg
+  set-uint32 orig-cell/ch cell/ch
+
+  ; set-uint16 orig-cell/fg cell/fg
+  ; set-uint16 orig-cell/bg cell/bg
+
+  ; set 2 foreground bytes
+  orig-cell/fg1: as byte! cell/fg and FFh
+  orig-cell/fg2: as byte! cell/fg >> 8 and FFh
+
+  ; set 2 background bytes
+  orig-cell/bg1: as byte! cell/bg and FFh
+  orig-cell/bg2: as byte! cell/bg >> 8 and FFh
+
   tb-put-cell-original x y orig-cell
+]
+
+fill-event-copy: function [
+  event-out [tb-event]
+  event-in [tb-event-original]
+][
+  event-out/type: event-in/type
+  event-out/mod: event-in/mod
+  event-out/key: (shortify event-in/key1 event-in/key2)
+  ; event-out/key: (get-uint16 event-in/key)
+  ; event-out/ch: as integer! event-in/ch
+  ; event-out/ch: event-in/ch
+  event-out/ch: (get-uint32 event-in/ch)
+  event-out/w: event-in/w
+  event-out/h: event-in/h
+  event-out/x: event-in/x
+  event-out/y: event-in/y
 ]
 
 tb-peek-event: function [
@@ -261,33 +357,22 @@ tb-poll-event: function [
   /local orig-event out
 ][
   orig-event: declare tb-event-original ; has uint16!
+  ; orig-event/key: declare uint16!
+  ; orig-event/ch: declare uint32!
   out: tb-poll-event-original orig-event
+  ; log-tb-event-original orig-event 1 1 ; TEMPORARY!
   fill-event-copy event orig-event
   return out
 ]
 
-; temporary function until I find a better way
-; shortify: function [
-;   "combine two bytes into an integer"
-;   v1 [byte!]
-;   v2 [byte!]
-;   return: [integer!]
-; ][
-;   return ((as integer! v1)) or ((as integer! v2) << 8)
-; ]
-
-fill-event-copy: function [
-  event-out [tb-event]
-  event-in [tb-event-original]
+; TEMP until there's a better way
+shortify: function [
+  "combine two bytes into an integer"
+  v1 [byte!]
+  v2 [byte!]
+  return: [integer!]
 ][
-  event-out/type: event-in/type
-  event-out/mod: event-in/mod
-  event-out/key: (get-uint16 event-in/key)
-  event-out/ch: event-in/ch
-  event-out/w: event-in/w
-  event-out/h: event-in/h
-  event-out/x: event-in/x
-  event-out/y: event-in/y
+  return ((as integer! v1)) or ((as integer! v2) << 8)
 ]
 
 ; additional wrapper functions not included in Termbox
@@ -296,8 +381,8 @@ tb-print: function [
   x [integer!] "x position"
   y [integer!] "y position"
   str [c-string!]
-  fg [integer!] "foreground color" ; TODO uint16_t
-  bg [integer!] "background color" ; TODO uint16_t
+  fg [integer!] "foreground color"
+  bg [integer!] "background color"
   /local s c
 ][
   c: 0

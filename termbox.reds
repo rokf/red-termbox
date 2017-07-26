@@ -6,34 +6,34 @@ Red/System []
 ; CFLAGS=-m32 LDFLAGS=-m32 ./waf configure --prefix=/usr
 ; ./waf
 
-#define TB-KEY-F1               FFFFh-0
-#define TB-KEY-F2               FFFFh-1
-#define TB-KEY-F3               FFFFh-2
-#define TB-KEY-F4               FFFFh-3
-#define TB-KEY-F5               FFFFh-4
-#define TB-KEY-F6               FFFFh-5
-#define TB-KEY-F7               FFFFh-6
-#define TB-KEY-F8               FFFFh-7
-#define TB-KEY-F9               FFFFh-8
-#define TB-KEY-F10              FFFFh-9
-#define TB-KEY-F11              FFFFh-10
-#define TB-KEY-F12              FFFFh-11
-#define TB-KEY-INSERT           FFFFh-12
-#define TB-KEY-DELETE           FFFFh-13
-#define TB-KEY-HOME             FFFFh-14
-#define TB-KEY-END              FFFFh-15
-#define TB-KEY-PGUP             FFFFh-16
-#define TB-KEY-PGDN             FFFFh-17
-#define TB-KEY-ARROW-UP         FFFFh-18
-#define TB-KEY-ARROW-DOWN       FFFFh-19
-#define TB-KEY-ARROW-LEFT       FFFFh-20
-#define TB-KEY-ARROW-RIGHT      FFFFh-21
-#define TB-KEY-MOUSE-LEFT       FFFFh-22
-#define TB-KEY-MOUSE-RIGHT      FFFFh-23
-#define TB-KEY-MOUSE-MIDDLE     FFFFh-24
-#define TB-KEY-MOUSE-RELEASE    FFFFh-25
-#define TB-KEY-MOUSE-WHEEL-UP   FFFFh-26
-#define TB-KEY-MOUSE-WHEEL-DOWN FFFFh-27
+#define TB-KEY-F1               [FFFFh - 0]
+#define TB-KEY-F2               [FFFFh - 1]
+#define TB-KEY-F3               [FFFFh - 2]
+#define TB-KEY-F4               [FFFFh - 3]
+#define TB-KEY-F5               [FFFFh - 4]
+#define TB-KEY-F6               [FFFFh - 5]
+#define TB-KEY-F7               [FFFFh - 6]
+#define TB-KEY-F8               [FFFFh - 7]
+#define TB-KEY-F9               [FFFFh - 8]
+#define TB-KEY-F10              [FFFFh - 9]
+#define TB-KEY-F11              [FFFFh - 10]
+#define TB-KEY-F12              [FFFFh - 11]
+#define TB-KEY-INSERT           [FFFFh - 12]
+#define TB-KEY-DELETE           [FFFFh - 13]
+#define TB-KEY-HOME             [FFFFh - 14]
+#define TB-KEY-END              [FFFFh - 15]
+#define TB-KEY-PGUP             [FFFFh - 16]
+#define TB-KEY-PGDN             [FFFFh - 17]
+#define TB-KEY-ARROW-UP         [FFFFh - 18]
+#define TB-KEY-ARROW-DOWN       [FFFFh - 19]
+#define TB-KEY-ARROW-LEFT       [FFFFh - 20]
+#define TB-KEY-ARROW-RIGHT      [FFFFh - 21]
+#define TB-KEY-MOUSE-LEFT       [FFFFh - 22]
+#define TB-KEY-MOUSE-RIGHT      [FFFFh - 23]
+#define TB-KEY-MOUSE-MIDDLE     [FFFFh - 24]
+#define TB-KEY-MOUSE-RELEASE    [FFFFh - 25]
+#define TB-KEY-MOUSE-WHEEL-UP   [FFFFh - 26]
+#define TB-KEY-MOUSE-WHEEL-DOWN [FFFFh - 27]
 
 #define TB-KEY-CTRL-TILDE       00h
 #define TB-KEY-CTRL-2           00h ; clash
@@ -121,31 +121,31 @@ Red/System []
 
 #define int-pointer! [pointer! [integer!]]
 
-uint16!: alias struct! [
-  lsb [byte!]
-  msb [byte!]
-]
+; uint16!: alias struct! [
+;   lsb [byte!]
+;   msb [byte!]
+; ]
+
+; get-uint16: function [
+;   src [uint16!]
+;   return: [integer!]
+; ][
+;   (as integer! src/lsb) or ((as integer! src/msb) << 8)
+; ]
+
+; set-uint16: function [
+;   src [uint16!]
+;   value [integer!]
+; ][
+;   src/lsb: as byte! value and FFh
+;   src/msb: as byte! value >> 8 and FFh
+; ]
 
 uint32!: alias struct! [
   b1 [byte!]
   b2 [byte!]
   b3 [byte!]
   b4 [byte!]
-]
-
-get-uint16: function [
-  src [uint16!]
-  return: [integer!]
-][
-  (as integer! src/lsb) or ((as integer! src/msb) << 8)
-]
-
-set-uint16: function [
-  src [uint16!]
-  value [integer!]
-][
-  src/lsb: as byte! value and FFh
-  src/msb: as byte! value >> 8 and FFh
 ]
 
 get-uint32: function [
@@ -173,9 +173,7 @@ tb-cell: alias struct! [
 
 tb-cell-original: alias struct! [
   ch [uint32! value]
-  ; fg [uint16! value]
-  ; bg [uint16! value]
-  fg1 [byte!]
+  fg1 [byte!] ; these have to be split, because [uint16! value] gets padded
   fg2 [byte!]
   bg1 [byte!]
   bg2 [byte!]
@@ -235,6 +233,32 @@ log-tb-event-original: function [
   release buffer
 ]
 
+log-tb-event: function [
+  e [tb-event]
+  x [integer!]
+  y [integer!]
+  /local buffer
+][
+  buffer: malloc 128
+  sprintf [buffer "type %d" (as integer! e/type)]
+  tb-print x y buffer tb-white tb-default
+  sprintf [buffer "mod %d" (as integer! e/mod)]
+  tb-print x (y + 1) buffer tb-white tb-default
+  sprintf [buffer "key %d" e/key]
+  tb-print x (y + 2) buffer tb-white tb-default
+  sprintf [buffer "ch %d" e/ch]
+  tb-print x (y + 3) buffer tb-white tb-default
+  sprintf [buffer "w %d" e/w]
+  tb-print x (y + 4) buffer tb-white tb-default
+  sprintf [buffer "h %d" e/h]
+  tb-print x (y + 5) buffer tb-white tb-default
+  sprintf [buffer "x %d" e/x]
+  tb-print x (y + 6) buffer tb-white tb-default
+  sprintf [buffer "y %d" e/y]
+  tb-print x (y + 7) buffer tb-white tb-default
+  release buffer
+]
+
 #import [
   "libc.so.6" cdecl [
     malloc: "malloc" [
@@ -253,22 +277,21 @@ log-tb-event-original: function [
     tb-width: "tb_width" [ return: [integer!] ]
     tb-height: "tb_height" [ return: [integer!] ]
     tb-clear: "tb_clear" []
-    tb-set-clear-attibutes: "tb_set_clear_attributes" [ fg [integer!] bg [integer!] ] ; TODO both are uint16_t
+    tb-set-clear-attibutes: "tb_set_clear_attributes" [ fg [integer!] bg [integer!] ]
     tb-present: "tb_present" []
     tb-set-cursor: "tb_set_cursor" [ cx [integer!] cy [integer!] ]
     tb-put-cell-original: "tb_put_cell" [
-      x [integer!]
-      y [integer!]
+      x [integer!] ; int32
+      y [integer!] ; int32
       cell [tb-cell-original]
     ]
-    tb-change-cell: "tb_change_cell" [ ; TODO make a wrapper with correct types
-      x [integer!]
-      y [integer!]
-      ch [integer!] ; TODO uint32!
-      fg [integer!] ; TODO 2 bytes
-      bg [integer!] ; TODO 2 bytes
+    tb-change-cell: "tb_change_cell" [ ; wrap for correct types?
+      x [integer!] ; int32
+      y [integer!] ; int32
+      ch [integer!] ; uint32
+      fg [integer!] ; uint16
+      bg [integer!] ; uint16
     ]
-    ; TEMPORARY DISABLED
     ; tb-blit: "tb_blit" [
     ;   x [integer!]
     ;   y [integer!]
@@ -308,9 +331,6 @@ tb-put-cell: function [
   orig-cell: declare tb-cell-original
   set-uint32 orig-cell/ch cell/ch
 
-  ; set-uint16 orig-cell/fg cell/fg
-  ; set-uint16 orig-cell/bg cell/bg
-
   ; set 2 foreground bytes
   orig-cell/fg1: as byte! cell/fg and FFh
   orig-cell/fg2: as byte! cell/fg >> 8 and FFh
@@ -329,9 +349,6 @@ fill-event-copy: function [
   event-out/type: event-in/type
   event-out/mod: event-in/mod
   event-out/key: (shortify event-in/key1 event-in/key2)
-  ; event-out/key: (get-uint16 event-in/key)
-  ; event-out/ch: as integer! event-in/ch
-  ; event-out/ch: event-in/ch
   event-out/ch: (get-uint32 event-in/ch)
   event-out/w: event-in/w
   event-out/h: event-in/h
@@ -340,27 +357,24 @@ fill-event-copy: function [
 ]
 
 tb-peek-event: function [
-  event [tb-event] ; doesn't have uint16!
+  event [tb-event]
   timeout [integer!]
   return: [integer!]
   /local orig-event out
 ][
-  orig-event: declare tb-event-original ; has uint16!
+  orig-event: declare tb-event-original
   out: tb-peek-event-original orig-event timeout
   fill-event-copy event orig-event
   return out
 ]
 
 tb-poll-event: function [
-  event [tb-event] ; doesn't have uint16!
+  event [tb-event]
   return: [integer!]
   /local orig-event out
 ][
-  orig-event: declare tb-event-original ; has uint16!
-  ; orig-event/key: declare uint16!
-  ; orig-event/ch: declare uint32!
+  orig-event: declare tb-event-original
   out: tb-poll-event-original orig-event
-  ; log-tb-event-original orig-event 1 1 ; TEMPORARY!
   fill-event-copy event orig-event
   return out
 ]
@@ -375,7 +389,6 @@ shortify: function [
   return ((as integer! v1)) or ((as integer! v2) << 8)
 ]
 
-; additional wrapper functions not included in Termbox
 tb-print: function [
   "put a c-string! on position x y"
   x [integer!] "x position"
@@ -388,7 +401,6 @@ tb-print: function [
   c: 0
   s: str
   until [
-    ; tb-change-cell (x + c) y (as pointer! [integer!] (as integer! s/1)) fg bg
     tb-change-cell (x + c) y (as integer! s/1) fg bg
     s: s + 1
     c: c + 1
